@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0A0A0F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>QR Tarayıcı</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0A0A0F;--surface:#13131A;--surface2:#1C1C27;--border:#2A2A3A;
+  --accent:#5B5BF6;--accent2:#8B8BFF;--green:#22C55E;--red:#EF4444;
+  --text:#F0F0FF;--muted:#7070A0;--card:#16161F;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow-x:hidden}
+body{display:flex;flex-direction:column;align-items:center;padding:env(safe-area-inset-top,12px) 0 env(safe-area-inset-bottom,24px)}
+
+.phone{width:100%;max-width:400px;background:var(--surface);min-height:100vh;display:flex;flex-direction:column}
+.status-bar{display:flex;justify-content:space-between;align-items:center;padding:12px 20px 6px;font-size:12px;color:var(--muted)}
+.header{padding:10px 16px 12px;display:flex;align-items:center;gap:10px;border-bottom:0.5px solid var(--border)}
+.app-icon{width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.app-icon svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.app-title{font-weight:600;font-size:16px}
+.app-sub{font-size:11px;color:var(--muted)}
+.settings-btn{margin-left:auto;width:36px;height:36px;border-radius:50%;border:0.5px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:20px}
+
+.tabs{display:flex;padding:10px 16px 0;gap:6px}
+.tab{flex:1;padding:9px 6px;border-radius:10px;border:none;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;transition:all .2s;touch-action:manipulation}
+.tab.active{background:var(--accent);color:#fff}
+.tab:not(.active){background:var(--surface2);color:var(--muted)}
+
+.section{padding:12px 16px;display:flex;flex-direction:column;gap:12px;flex:1}
+.section.hidden{display:none}
+
+.viewfinder{position:relative;background:#000;border-radius:16px;overflow:hidden;width:100%;aspect-ratio:1/1}
+video{width:100%;height:100%;object-fit:cover;display:block}
+.vf-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.scan-frame{width:62%;height:62%;position:relative}
+.corner{position:absolute;width:22px;height:22px;border-color:var(--accent2);border-style:solid}
+.c-tl{top:0;left:0;border-width:3px 0 0 3px;border-radius:4px 0 0 0}
+.c-tr{top:0;right:0;border-width:3px 3px 0 0;border-radius:0 4px 0 0}
+.c-bl{bottom:0;left:0;border-width:0 0 3px 3px;border-radius:0 0 0 4px}
+.c-br{bottom:0;right:0;border-width:0 3px 3px 0;border-radius:0 0 4px 0}
+.scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent2),transparent);animation:scanAnim 2s ease-in-out infinite;top:0}
+@keyframes scanAnim{0%{top:4%}50%{top:92%}100%{top:4%}}
+.vf-idle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:var(--surface2)}
+.vf-idle p{font-size:13px;color:var(--muted);text-align:center;max-width:160px;line-height:1.4}
+.flash-overlay{position:absolute;inset:0;background:white;opacity:0;border-radius:16px;transition:opacity .1s;pointer-events:none}
+.flash-overlay.flash{opacity:.7}
+
+.controls{display:flex;gap:8px}
+.btn-main{flex:1;padding:13px;border-radius:13px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;touch-action:manipulation}
+.btn-main:active{transform:scale(.97)}
+.btn-main.stop{background:var(--red)}
+.btn-icon{width:46px;height:46px;border-radius:13px;border:0.5px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;touch-action:manipulation}
+.btn-icon:active{transform:scale(.95)}
+.btn-icon svg{width:20px;height:20px;fill:none;stroke:var(--text);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.torch-on{background:rgba(91,91,246,.2);border-color:var(--accent)}
+.torch-on svg{stroke:var(--accent2)}
+
+.result-card{background:var(--card);border:0.5px solid var(--border);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:90px}
+.result-empty{text-align:center;padding:18px 0;color:var(--muted);font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.result-item{background:var(--surface2);border-radius:10px;padding:11px 12px;display:flex;align-items:flex-start;gap:10px;cursor:pointer;border:0.5px solid transparent;transition:all .2s;animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.result-item:active{background:rgba(91,91,246,.1);border-color:var(--accent)}
+.type-badge{flex-shrink:0;background:rgba(91,91,246,.15);border-radius:8px;padding:7px;display:flex}
+.type-badge svg{width:17px;height:17px;fill:none;stroke:var(--accent2);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.result-content{flex:1;min-width:0}
+.result-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:3px}
+.result-text{font-size:13px;color:var(--text);word-break:break-all;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.result-time{font-size:10px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}
+.copy-btn{flex-shrink:0;width:30px;height:30px;border-radius:8px;border:0.5px solid var(--border);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
+.copy-btn svg{width:14px;height:14px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.copy-btn.copied svg{stroke:var(--green)}
+
+.upload-area{border:1.5px dashed var(--border);border-radius:14px;padding:28px 16px;text-align:center;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:10px;touch-action:manipulation}
+.upload-area:active{border-color:var(--accent);background:rgba(91,91,246,.05)}
+.upload-area svg{opacity:.45}
+.upload-area p{font-size:14px;color:var(--text)}
+.upload-area span{font-size:11px;color:var(--muted)}
+.upload-area input{display:none}
+
+.preview-img{width:100%;border-radius:12px;object-fit:contain;max-height:220px;background:#000;display:none}
+
+#hist-list{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto}
+.clear-btn{padding:12px;border-radius:13px;border:none;background:rgba(239,68,68,.15);color:var(--red);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;touch-action:manipulation}
+
+.toast{position:fixed;bottom:max(24px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:var(--surface2);color:var(--text);font-size:13px;padding:10px 20px;border-radius:14px;border:0.5px solid var(--border);white-space:nowrap;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9999}
+.toast.show{opacity:1}
+
+.status-indicator{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);padding:4px 10px;background:var(--surface2);border-radius:20px;border:0.5px solid var(--border)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--muted)}
+.dot.scanning{background:var(--accent2);animation:pulse 1s infinite}
+.dot.found{background:var(--green)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="status-bar">
+    <span id="clock">--:--</span>
+    <span>QR Tarayıcı</span>
+    <span id="battery">🔋</span>
+  </div>
+
+  <div class="header">
+    <div class="app-icon">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="3" height="3" rx="0.5"/><rect x="19" y="14" width="2" height="2" rx="0.5"/><rect x="14" y="19" width="2" height="2" rx="0.5"/><rect x="18" y="19" width="3" height="2" rx="0.5"/><rect x="19" y="17" width="2" height="1" rx="0.5"/></svg>
+    </div>
+    <div>
+      <div class="app-title">QR Tarayıcı</div>
+      <div class="app-sub" id="scan-status-label">Hazır</div>
+    </div>
+    <div class="status-indicator" id="stat-ind" style="margin-left:auto">
+      <span class="dot" id="stat-dot"></span>
+      <span id="stat-text">Bekliyor</span>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('scan',this)">📷 Kamera</button>
+    <button class="tab" onclick="switchTab('upload',this)">🖼 Görsel</button>
+    <button class="tab" onclick="switchTab('hist',this)">🕐 Geçmiş</button>
+  </div>
+
+  <!-- KAMERA SEKMESİ -->
+  <div class="section" id="scan-tab">
+    <div class="viewfinder" id="vf">
+      <video id="vid" autoplay playsinline muted></video>
+      <div class="vf-overlay">
+        <div class="scan-frame" id="scan-frame" style="display:none">
+          <div class="corner c-tl"></div><div class="corner c-tr"></div>
+          <div class="corner c-bl"></div><div class="corner c-br"></div>
+          <div class="scan-line"></div>
+        </div>
+      </div>
+      <div class="vf-idle" id="vf-idle">
+        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <p>Kamerayı açmak için aşağıdaki butona dokun</p>
+      </div>
+      <div class="flash-overlay" id="flash"></div>
+    </div>
+
+    <div class="controls">
+      <button class="btn-main" id="cam-btn" onclick="toggleCamera()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M3 7h2l2-3h10l2 3h2a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/></svg>
+        Kamerayı Aç
+      </button>
+      <button class="btn-icon" id="torch-btn" onclick="toggleTorch()" title="Flaş">
+        <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </button>
+      <button class="btn-icon" onclick="flipCamera()" title="Çevir">
+        <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-6.51"/></svg>
+      </button>
+    </div>
+
+    <div class="result-card" id="scan-result-card">
+      <div class="result-empty">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+        <p>Sonuç burada görünecek</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- GÖRSEL SEKMESİ -->
+  <div class="section hidden" id="upload-tab">
+    <label class="upload-area" id="drop-zone" for="file-input">
+      <input type="file" id="file-input" accept="image/*">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <p>Galeriden QR fotoğrafı seç</p>
+      <span>PNG, JPG, WEBP — veya kameranla çek</span>
+    </label>
+    <canvas id="decode-canvas" style="display:none"></canvas>
+    <img class="preview-img" id="preview-img" alt="Yüklenen görsel">
+    <div class="result-card" id="upload-result-card">
+      <div class="result-empty">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p>Görsel seçilmedi</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- GEÇMİŞ SEKMESİ -->
+  <div class="section hidden" id="hist-tab">
+    <div id="hist-list">
+      <div class="result-empty">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <p>Henüz tarama geçmişi yok</p>
+      </div>
+    </div>
+    <button class="clear-btn" id="clear-btn" style="display:none" onclick="clearHistory()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      Geçmişi Temizle
+    </button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
+<script>
+// ── STATE ──────────────────────────────────────────────
+let stream = null, scanning = false, scanTick = null;
+let torchOn = false, facingMode = 'environment';
+let history = JSON.parse(localStorage.getItem('qr_history') || '[]').map(e=>({...e,time:new Date(e.time)}));
+let lastResult = null, lastResultTime = 0;
+
+const vid = document.getElementById('vid');
+const flash = document.getElementById('flash');
+const scanFrame = document.getElementById('scan-frame');
+const vfIdle = document.getElementById('vf-idle');
+const camBtn = document.getElementById('cam-btn');
+const statDot = document.getElementById('stat-dot');
+const statText = document.getElementById('stat-text');
+
+// ── CLOCK ──────────────────────────────────────────────
+function tick() {
+  const n = new Date();
+  document.getElementById('clock').textContent =
+    String(n.getHours()).padStart(2,'0') + ':' + String(n.getMinutes()).padStart(2,'0');
+}
+tick(); setInterval(tick, 15000);
+
+// ── TABS ───────────────────────────────────────────────
+function switchTab(name, btn) {
+  ['scan','upload','hist'].forEach(t => {
+    document.getElementById(t + '-tab').classList.toggle('hidden', t !== name);
+  });
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── CAMERA ─────────────────────────────────────────────
+async function toggleCamera() {
+  if (!stream) { await startCamera(); }
+  else { stopCamera(); }
+}
+
+async function startCamera() {
+  setStatus('Bağlanıyor…', false);
+  try {
+    const constraints = {
+      video: {
+        facingMode,
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        focusMode: 'continuous'
+      }
+    };
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    vid.srcObject = stream;
+    await new Promise(r => vid.onloadedmetadata = r);
+    vid.play();
+    vfIdle.style.display = 'none';
+    scanFrame.style.display = 'block';
+    camBtn.innerHTML = svgIcon('x') + ' Kamerayı Kapat';
+    camBtn.classList.add('stop');
+    scanning = true;
+    lastResult = null;
+    setStatus('Tarıyor', true);
+    scanTick = setInterval(doScan, 150);
+  } catch(e) {
+    setStatus('Hata', false);
+    showToast('Kamera izni reddedildi veya desteklenmiyor');
+    console.error(e);
+  }
+}
+
+function stopCamera() {
+  scanning = false;
+  clearInterval(scanTick);
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = null;
+  vid.srcObject = null;
+  vfIdle.style.display = 'flex';
+  scanFrame.style.display = 'none';
+  camBtn.innerHTML = svgIcon('camera') + ' Kamerayı Aç';
+  camBtn.classList.remove('stop');
+  setStatus('Bekliyor', false);
+}
+
+// ── SCAN LOGIC ─────────────────────────────────────────
+function doScan() {
+  if (!scanning || vid.readyState < 2 || vid.videoWidth === 0) return;
+
+  const vw = vid.videoWidth, vh = vid.videoHeight;
+
+  // jsQR ile QR dene (tam + yarı çözünürlük)
+  const result = scanCanvas(vw, vh, vw, vh);
+  if (result) { onFound(result); return; }
+  const result2 = scanCanvas(vw, vh, Math.round(vw/2), Math.round(vh/2));
+  if (result2) { onFound(result2); return; }
+
+  // jsQR bulamazsa ZXing ile barkod dene (her 5 frame'de bir, ağır işlem)
+  if (typeof doScan._zxTick === 'undefined') doScan._zxTick = 0;
+  doScan._zxTick++;
+  if (doScan._zxTick % 5 === 0) tryZxingCamera();
+}
+
+function scanCanvas(srcW, srcH, dstW, dstH) {
+  try {
+    const c = document.createElement('canvas');
+    c.width = dstW; c.height = dstH;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(vid, 0, 0, dstW, dstH);
+
+    // Kontrast artır
+    ctx.filter = 'contrast(1.4) brightness(1.1)';
+    ctx.drawImage(c, 0, 0);
+    ctx.filter = 'none';
+
+    const imageData = ctx.getImageData(0, 0, dstW, dstH);
+    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: 'dontInvert'
+    });
+    if (code) return code.data;
+
+    // Ters renk de dene
+    const code2 = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: 'onlyInvert'
+    });
+    return code2 ? code2.data : null;
+  } catch(e) { return null; }
+}
+
+function onFound(text) {
+  const now = Date.now();
+  // Aynı sonucu 3 saniye içinde tekrar gösterme
+  if (text === lastResult && now - lastResultTime < 3000) return;
+  lastResult = text;
+  lastResultTime = now;
+
+  triggerFlash();
+  vibrate();
+  setStatus('Bulundu!', false, true);
+  setTimeout(() => setStatus('Tarıyor', true), 2000);
+
+  const entry = addToHistory(text, 'kamera');
+  renderResultCard(text, entry.type, 'scan-result-card', entry.time);
+  showToast('✓ QR kod okundu');
+}
+
+// ── IMAGE DECODE ───────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', function() {
+  if (this.files[0]) handleFile(this.files[0]);
+});
+
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      // Önizleme
+      const prev = document.getElementById('preview-img');
+      prev.src = e.target.result;
+      prev.style.display = 'block';
+
+      // Max 1024px'e ölçekle (büyük görseller jsQR'ı yavaşlatır)
+      const MAX = 1024;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else { w = Math.round(w * MAX / h); h = MAX; }
+      }
+
+      const c = document.getElementById('decode-canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0, w, h);
+
+      let found = null;
+
+      // Deneme 1: normal
+      let id = ctx.getImageData(0, 0, w, h);
+      found = jsQR(id.data, id.width, id.height, { inversionAttempts: 'dontInvert' });
+
+      // Deneme 2: ters renk
+      if (!found) found = jsQR(id.data, id.width, id.height, { inversionAttempts: 'onlyInvert' });
+
+      // Deneme 3: kontrast artırılmış
+      if (!found) {
+        ctx.filter = 'contrast(1.6) brightness(1.1)';
+        ctx.drawImage(img, 0, 0, w, h);
+        ctx.filter = 'none';
+        id = ctx.getImageData(0, 0, w, h);
+        found = jsQR(id.data, id.width, id.height, { inversionAttempts: 'attemptBoth' });
+      }
+
+      // Deneme 4: siyah-beyaz
+      if (!found) {
+        ctx.filter = 'grayscale(1) contrast(2)';
+        ctx.drawImage(img, 0, 0, w, h);
+        ctx.filter = 'none';
+        id = ctx.getImageData(0, 0, w, h);
+        found = jsQR(id.data, id.width, id.height, { inversionAttempts: 'attemptBoth' });
+      }
+
+      if (found) {
+        triggerFlash();
+        vibrate();
+        const entry = addToHistory(found.data, 'görsel');
+        renderResultCard(found.data, entry.type, 'upload-result-card', entry.time);
+        showToast('✓ QR kod okundu');
+        scrollToResult('upload-result-card');
+      } else {
+        // ZXing ile barkod/QR dene
+        tryZxingOnImage(img, w, h);
+      }
+    };
+    img.onerror = () => showToast('Görsel yüklenemedi');
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── HISTORY ────────────────────────────────────────────
+function addToHistory(text, source) {
+  const type = detectType(text);
+  const entry = { text, type, source, time: new Date() };
+  history.unshift(entry);
+  if (history.length > 50) history = history.slice(0, 50);
+  saveHistory();
+  renderHistory();
+  return entry;
+}
+
+function saveHistory() {
+  try { localStorage.setItem('qr_history', JSON.stringify(history)); } catch(e) {}
+}
+
+function clearHistory() {
+  history = [];
+  saveHistory();
+  renderHistory();
+  showToast('Geçmiş silindi');
+}
+
+function renderHistory() {
+  const list = document.getElementById('hist-list');
+  const clearBtn = document.getElementById('clear-btn');
+  if (!history.length) {
+    list.innerHTML = '<div class="result-empty"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><p>Henüz tarama geçmişi yok</p></div>';
+    clearBtn.style.display = 'none';
+    return;
+  }
+  list.innerHTML = history.slice(0, 30).map((e, i) => resultItemHTML(e.text, e.type, e.time, 'h' + i)).join('');
+  clearBtn.style.display = 'flex';
+  addCopyListeners();
+}
+
+// ── RENDER RESULT ──────────────────────────────────────
+function renderResultCard(text, type, cardId, time) {
+  const card = document.getElementById(cardId);
+  card.innerHTML = resultItemHTML(text, type, time, cardId);
+  card.style.borderColor = 'var(--green)';
+  setTimeout(() => { card.style.borderColor = ''; }, 2500);
+  addCopyListeners();
+}
+
+// result store: id -> text (data attribute ile güvenli iletişim)
+const resultStore = {};
+let resultStoreId = 0;
+
+function resultItemHTML(text, type, time, id) {
+  const timeStr = time instanceof Date
+    ? String(time.getHours()).padStart(2,'0') + ':' + String(time.getMinutes()).padStart(2,'0')
+    : '--:--';
+  const safeText = escHtml(text);
+  const sid = 'rs' + (resultStoreId++);
+  resultStore[sid] = text;
+  const actionLabels = { url:'Bağlantıyı Aç →', tel:'Ara →', email:'Mail Gönder →', wifi:'Kopyala', contact:'Kopyala', text:'Kopyala' };
+  const actionLabel = actionLabels[type] || 'Kopyala';
+  return `<div class="result-item" data-sid="${sid}" data-type="${type}">
+    <div class="type-badge">${typeIconSVG(type)}</div>
+    <div class="result-content">
+      <div class="result-label">${typeLabel(type)}</div>
+      <div class="result-text">${safeText}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:5px">
+        <div class="result-time">${timeStr}</div>
+        <span style="font-size:11px;color:var(--accent2);font-weight:600">${actionLabel}</span>
+      </div>
+    </div>
+    <button class="copy-btn" data-cid="${sid}" title="Kopyala">
+      <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    </button>
+  </div>`;
+}
+
+function addCopyListeners() {
+  document.querySelectorAll('.result-item').forEach(item => {
+    item.onclick = null;
+    item.addEventListener('click', function(e) {
+      if (e.target.closest('.copy-btn')) return;
+      const sid = this.dataset.sid;
+      const type = this.dataset.type;
+      const text = resultStore[sid];
+      if (!text) return;
+      if (type === 'url') {
+        const url = /^https?:\/\//i.test(text) ? text : 'https://' + text;
+        window.open(url, '_blank');
+      } else if (type === 'tel') {
+        window.location.href = 'tel:' + text.replace(/^TEL:/i,'');
+      } else if (type === 'email') {
+        window.location.href = 'mailto:' + text.replace(/^MAILTO:/i,'');
+      } else {
+        doTextCopy(text, null);
+      }
+    });
+  });
+  document.querySelectorAll('.copy-btn[data-cid]').forEach(btn => {
+    btn.onclick = null;
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const text = resultStore[this.dataset.cid];
+      if (text) doTextCopy(text, this);
+    });
+  });
+}
+
+function handleClick() {} // artık kullanılmıyor
+
+function doTextCopy(text, btn) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('Panoya kopyalandı');
+      if (btn) { btn.classList.add('copied'); setTimeout(() => btn.classList.remove('copied'), 2000); }
+    }).catch(() => fallbackCopy(text));
+  } else { fallbackCopy(text); }
+}
+
+function doCopy(enc, btnId) {
+  const text = typeof enc === 'string' && enc.includes('%') ? decodeURIComponent(enc) : enc;
+  doTextCopy(text, btnId ? document.getElementById(btnId) : null);
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); showToast('Panoya kopyalandı'); }
+  catch(e) { showToast('Kopyalanamadı'); }
+  document.body.removeChild(ta);
+}
+
+// ── ZXING DECODE ───────────────────────────────────────
+let zxingReader = null;
+function getZxing() {
+  if (!zxingReader && window.ZXing) {
+    try { zxingReader = new ZXing.BrowserMultiFormatReader(); } catch(e) {}
+  }
+  return zxingReader;
+}
+
+function tryZxingOnImage(imgEl, w, h) {
+  const reader = getZxing();
+  if (!reader) {
+    showNoResult();
+    return;
+  }
+  const c = document.getElementById('decode-canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(imgEl, 0, 0, w, h);
+
+  reader.decodeFromCanvas(c).then(result => {
+    if (result && result.text) {
+      triggerFlash(); vibrate();
+      const entry = addToHistory(result.text, 'görsel');
+      renderResultCard(result.text, entry.type, 'upload-result-card', entry.time);
+      showToast('✓ Barkod/QR okundu');
+      scrollToResult('upload-result-card');
+    } else { showNoResult(); }
+  }).catch(() => showNoResult());
+}
+
+function showNoResult() {
+  document.getElementById('upload-result-card').innerHTML =
+    '<div class="result-empty"><p style="color:var(--red)">❌ Kod bulunamadı</p><p style="font-size:12px;color:var(--muted);margin-top:4px">Daha net veya yakın bir fotoğraf deneyin</p></div>';
+}
+
+// ZXing ile kamera taraması (barkodlar için)
+let zxCamReader = null;
+let useZxCam = false;
+
+async function tryZxingCamera() {
+  const reader = getZxing();
+  if (!reader || !stream) return;
+  try {
+    const c = document.createElement('canvas');
+    c.width = vid.videoWidth; c.height = vid.videoHeight;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(vid, 0, 0);
+    const result = await reader.decodeFromCanvas(c);
+    if (result && result.text) onFound(result.text);
+  } catch(e) {}
+}
+function scrollToResult(cardId) {
+  setTimeout(() => {
+    const el = document.getElementById(cardId);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 150);
+}
+
+function detectType(t) {
+  if (/^https?:\/\//i.test(t)) return 'url';
+  if (/^www\./i.test(t)) return 'url';
+  if (/^[a-z0-9\-]+\.[a-z]{2,}(\/|$)/i.test(t) && !t.includes(' ') && !t.includes('@')) return 'url';
+  if (/^WIFI:/i.test(t)) return 'wifi';
+  if (/^MAILTO:/i.test(t) || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(t)) return 'email';
+  if (/^TEL:/i.test(t) || /^\+?[\d\s\-\(\)]{7,}$/.test(t)) return 'tel';
+  if (/^BEGIN:VCARD/i.test(t)) return 'contact';
+  return 'text';
+}
+
+function typeLabel(t) {
+  return { url:'Web Adresi', wifi:'Wi-Fi', email:'E-posta', tel:'Telefon', contact:'Kişi', text:'Metin' }[t] || 'Metin';
+}
+
+function typeIconSVG(type) {
+  const paths = {
+    url: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    wifi: '<path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>',
+    email: '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
+    tel: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>',
+    contact: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    text: '<line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/>'
+  };
+  return `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths[type]||paths.text}</svg>`;
+}
+
+// ── TORCH & FLIP ───────────────────────────────────────
+async function toggleTorch() {
+  if (!stream) { showToast('Önce kamerayı aç'); return; }
+  const track = stream.getVideoTracks()[0];
+  if (!track.getCapabilities || !track.getCapabilities().torch) { showToast('Bu cihazda flaş desteklenmiyor'); return; }
+  torchOn = !torchOn;
+  try {
+    await track.applyConstraints({ advanced: [{ torch: torchOn }] });
+    document.getElementById('torch-btn').classList.toggle('torch-on', torchOn);
+    showToast(torchOn ? 'Flaş açıldı' : 'Flaş kapandı');
+  } catch(e) { showToast('Flaş açılamadı'); torchOn = !torchOn; }
+}
+
+async function flipCamera() {
+  facingMode = facingMode === 'environment' ? 'user' : 'environment';
+  if (stream) { stopCamera(); await startCamera(); }
+  else { showToast(facingMode === 'user' ? 'Ön kamera seçildi' : 'Arka kamera seçildi'); }
+}
+
+// ── HELPERS ────────────────────────────────────────────
+function triggerFlash() {
+  flash.classList.add('flash');
+  setTimeout(() => flash.classList.remove('flash'), 250);
+}
+
+function vibrate() {
+  try { if (navigator.vibrate) navigator.vibrate([80, 40, 40]); } catch(e) {}
+}
+
+function setStatus(text, pulsing, found) {
+  statText.textContent = text;
+  statDot.className = 'dot' + (pulsing ? ' scanning' : found ? ' found' : '');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+function svgIcon(name) {
+  if (name === 'camera') return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M3 7h2l2-3h10l2 3h2a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/></svg>';
+  if (name === 'x') return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  return '';
+}
+
+// ── INIT ───────────────────────────────────────────────
+renderHistory();
+</script>
+</body>
+</html>
