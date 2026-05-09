@@ -1,1 +1,22 @@
-
+{
+  "short_name": "QR Tarayıcı",
+  "name": "Hızlı QR ve Barkod Tarayıcı",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#0A0A0F",
+  "display": "standalone",
+  "scope": "./",
+  "theme_color": "#0A0A0F",
+  "description": "HVAC projeleri ve genel kullanım için hızlı QR okuyucu."
+}
