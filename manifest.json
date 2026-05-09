@@ -18,5 +18,5 @@
   "display": "standalone",
   "scope": "./",
   "theme_color": "#0A0A0F",
-  "description": "HVAC projeleri ve genel kullanım için hızlı QR okuyucu."
+  "description": "Genel kullanım için hızlı QR okuyucu."
 }
